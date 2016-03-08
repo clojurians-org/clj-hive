@@ -57,7 +57,7 @@
         xfn ((comp eval read-string) fn-str)]
     (reset! (.state agg) (common/writable [fn-str (merge-with xfn (second (common/eval-writable @(.state agg))) amap)])) ))
 (defn merge-with-evaluator-iterate [this agg params]
-  (let [[fn-str amap] (->> params ((juxt first second)) (map #(-> % common/clone-obj (common/force-lazy :full))))]
+  (let [[fn-str amap] (as-> params $ (map #(-> % (common/force-lazy :full) common/clone-obj) $))]
     (merge-with-evaluator-merge this agg [fn-str amap]) ))
 (gen-class :name oneonebang.hive.ql.udaf.merge_with :prefix "merge-with-"
            :extends org.apache.hadoop.hive.ql.udf.generic.AbstractGenericUDAFResolver)
