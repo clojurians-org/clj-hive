@@ -34,14 +34,14 @@
 (defn force-lazy
   ([lazy] (force-lazy lazy nil))
   ([lazy mode]
-   (cond (instance-some? [LazyBinaryMap LazyMap] lazy) (force-lazy (into {} (.getMap lazy)))
-         (instance-some? [LazyBinaryArray LazyArray] lazy) (force-lazy (into [] (.getList lazy)))
-         (instance-some? [LazyBinaryStruct LazyStruct] lazy) (force-lazy (into [] (.getFieldsAsList lazy)))
-         (instance-some? [LazyBinaryPrimitive LazyPrimitive] lazy) (force-lazy (.getWritableObject lazy) mode)
+   (cond (instance-some? [LazyBinaryMap LazyMap] lazy) (into {} (mapv #(force-lazy % mode) (.getMap lazy) ))
+         (instance-some? [LazyBinaryArray LazyArray] lazy) (mapv #(force-lazy % mode) (.getList lazy) )
+         (instance-some? [LazyBinaryStruct LazyStruct] lazy) (mapv #(force-lazy % mode) (.getFieldsAsList lazy) )
+         (instance-some? [LazyBinaryPrimitive LazyPrimitive] lazy) (mapv #(force-lazy % mode) (.getWritableObject lazy) )
          (instance? GenericUDF$DeferredObject lazy) (force-lazy (.get lazy) mode)
          (= mode :full) (eval-writable lazy)
          :else lazy )))
-
+   
 (def registry (carbonite.api/default-registry))
 (defn clone-obj [obj] (->> obj (carbonite.buffer/write-bytes registry) (carbonite.buffer/read-bytes registry)))
 
