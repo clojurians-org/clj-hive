@@ -8,6 +8,7 @@
                                        [org.apache.hive.hcatalog/hive-hcatalog-core "1.2.1"]]}}
   :aot :all
   :main nil
+  :java-source-paths ["src/java"]
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [com.twitter/carbonite "1.4.0"]
                  [org.clojure/data.json "0.2.6"]

@@ -18,13 +18,6 @@
   (->> params (map #(common/force-lazy % :full)) seq (apply +)  common/writable) )
 (defn sum-getDisplayString [ this params ] "sum")
 
-(gen-class :name oneonebang.hive.ql.udf.tsum :prefix "tsum-"
-           :extends org.apache.hadoop.hive.ql.udf.generic.GenericUDF)
-(defn tsum-initialize [ this params ] (apply sum-initialize this params))
-(defn tsum-evaluate [ this params ] (apply sum-evaluate this params))
-(defn tsum-getDisplayString [ this params ] "tsum")
-
-
 (gen-class :name oneonebang.hive.ql.udf.json :prefix "json-"
            :extends org.apache.hadoop.hive.ql.udf.generic.GenericUDF)
 (defn json-initialize [this params ]
@@ -38,7 +31,8 @@
 (defn conj-initialize [ this params ]
   (-> params first ObjectInspectorUtils/getStandardObjectInspector) )
 (defn conj-evaluate [ this params ]
-  (->> params (map common/force-lazy) (apply concat)) )
+  (let [[coll & elements] (->> params (map common/force-lazy))]
+        (apply conj (seq coll) elements) ))
 (defn conj-getDisplayString [ this params ])
 
 (gen-class :name oneonebang.hive.ql.udf.concat :prefix "concat-"
@@ -48,6 +42,14 @@
 (defn concat-evaluate [ this params ]
   (->> params (map common/force-lazy) (apply concat)) )
 (defn concat-getDisplayString [ this params ])
+
+(gen-class :name oneonebang.hive.ql.udf.str :prefix "str-"
+           :extends org.apache.hadoop.hive.ql.udf.generic.GenericUDF)
+(defn str-initialize [ this params ]
+  (PrimitiveObjectInspectorFactory/getPrimitiveWritableObjectInspector PrimitiveObjectInspector$PrimitiveCategory/STRING))
+(defn str-evaluate [ this params ]
+  (->> params (map common/force-lazy) (apply str) common/writable) )
+(defn str-getDisplayString [ this params ] "str")
 
 (gen-class :name oneonebang.hive.ql.udf.difference :prefix "difference-"
            :extends org.apache.hadoop.hive.ql.udf.generic.GenericUDF)
@@ -66,6 +68,51 @@
         (common/writable (apply merge-with (-> fn-str read-string eval) final-params)) ))
 (defn merge-with-getDisplayString [ this params ] "merge-with")
 
+(gen-class :name oneonebang.hive.ql.udf.filter :prefix "filter-"
+           :extends org.apache.hadoop.hive.ql.udf.generic.GenericUDF)
+(defn filter-initialize [ this params ]
+  (-> params second ObjectInspectorUtils/getStandardObjectInspector))
+(defn filter-evaluate [ this params ]
+  (let [[fn-str coll] (->> params (map #(common/force-lazy % :full)))]
+    (common/writable (filter (-> fn-str read-string eval) coll)) ))
+(defn filter-getDisplayString [ this params ] "filter")
+
+(gen-class :name oneonebang.hive.ql.udf.map :prefix "map-"
+           :extends org.apache.hadoop.hive.ql.udf.generic.GenericUDF)
+(defn map-initialize [ this params ]
+  (-> params second ObjectInspectorUtils/getStandardObjectInspector))
+(defn map-evaluate [ this params ]
+  (let [[fn-str coll] (->> params (map #(common/force-lazy % :full)))
+        map-ret (map (-> fn-str read-string eval) coll)]
+    (common/writable (cond->> map-ret (map? coll) (into {}))) ))
+(defn map-getDisplayString [ this params ] "map")
+
+(gen-class :name oneonebang.hive.ql.udf.frequencies :prefix "frequencies-"
+           :extends org.apache.hadoop.hive.ql.udf.generic.GenericUDF)
+(defn frequencies-initialize [ this params ]
+  (ObjectInspectorFactory/getStandardMapObjectInspector
+   (-> params first .getListElementObjectInspector ObjectInspectorUtils/getStandardObjectInspector)
+   (PrimitiveObjectInspectorFactory/getPrimitiveWritableObjectInspector PrimitiveObjectInspector$PrimitiveCategory/INT) ))
+(defn frequencies-evaluate [ this params ]
+  (->> params first  common/force-lazy frequencies common/writable) )
+(defn frequencies-getDisplayString [ this params ] "frequencies")
+
+(gen-class :name oneonebang.hive.ql.udf.distinct :prefix "distinct-"
+           :extends org.apache.hadoop.hive.ql.udf.generic.GenericUDF)
+(defn distinct-initialize [ this params ]
+   (-> params first ObjectInspectorUtils/getStandardObjectInspector))
+(defn distinct-evaluate [ this params ]
+  (->> params first  common/force-lazy distinct common/writable) )
+(defn distinct-getDisplayString [ this params ] "distinct")
+
+(gen-class :name oneonebang.hive.ql.udf.count :prefix "count-"
+           :extends org.apache.hadoop.hive.ql.udf.generic.GenericUDF)
+(defn count-initialize [ this params ]
+  (PrimitiveObjectInspectorFactory/getPrimitiveWritableObjectInspector PrimitiveObjectInspector$PrimitiveCategory/INT))
+(defn count-evaluate [ this params ]
+  (-> params first  (common/force-lazy :full) count common/writable) )
+(defn count-getDisplayString [ this params ] "distinct")
+
 (defmacro gen-tfn [fn-name]
   (let [fn-class-name (str "t" (str/replace fn-name "-" "_"))]
   `(do
@@ -78,4 +125,3 @@
      (defn ~(read-string (str "t" fn-name "-getDisplayString")) [this# params#] ~(str "t" fn-name)) ) ))
 (gen-tfn "sum")
 (gen-tfn "concat")
-
